@@ -1,0 +1,961 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>EXE Lounge - 座席管理</title>
+<style>
+/* ===== Reset & Base ===== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Hiragino Sans', sans-serif;
+  background: #1a1a2e;
+  color: #eee;
+  min-height: 100vh;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+a { color: #64b5f6; }
+
+/* ===== Header ===== */
+.header {
+  background: #16213e;
+  padding: 12px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 2px solid #0f3460;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.header h1 {
+  font-size: 20px;
+  font-weight: 700;
+  color: #e94560;
+}
+.header .mode-label {
+  font-size: 13px;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-weight: 600;
+}
+.mode-staff .mode-label { background: #e94560; color: #fff; }
+.mode-entrance .mode-label { background: #0f3460; color: #64b5f6; }
+.mode-admin .mode-label { background: #ff9800; color: #000; }
+
+/* ===== Summary Bar ===== */
+.summary {
+  background: #16213e;
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+.summary-numbers {
+  font-size: 28px;
+  font-weight: 700;
+}
+.summary-numbers .available-count { color: #4caf50; }
+.summary-numbers .total-count { color: #999; }
+.progress-bar {
+  flex: 1;
+  min-width: 120px;
+  height: 12px;
+  background: #4caf50;
+  border-radius: 6px;
+  overflow: hidden;
+}
+.progress-bar .occupied-fill {
+  height: 100%;
+  background: #f44336;
+  transition: width 0.4s ease;
+}
+.summary .clock {
+  font-size: 20px;
+  color: #999;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ===== Seat Grid ===== */
+.seat-sections {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.seat-section {
+  background: #16213e;
+  border-radius: 12px;
+  padding: 16px;
+}
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.section-title {
+  font-size: 16px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.section-title .type-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  display: inline-block;
+}
+.section-count {
+  font-size: 14px;
+  color: #999;
+}
+.section-count .avail { color: #4caf50; font-weight: 700; }
+.seats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 10px;
+}
+
+/* ===== Seat Button ===== */
+.seat-btn {
+  position: relative;
+  min-height: 80px;
+  border-radius: 12px;
+  border: 3px solid transparent;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.1s, opacity 0.2s, box-shadow 0.3s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+.seat-btn .seat-label { font-size: 16px; }
+.seat-btn .seat-status { font-size: 11px; font-weight: 400; opacity: 0.9; }
+.seat-btn .seat-duration {
+  font-size: 10px;
+  font-weight: 400;
+  opacity: 0.8;
+  position: absolute;
+  bottom: 4px;
+}
+.seat-btn.available {
+  background: #2e7d32;
+  color: #fff;
+  border-color: #4caf50;
+}
+.seat-btn.occupied {
+  background: #c62828;
+  color: #fff;
+  border-color: #f44336;
+}
+.seat-btn.occupied.long-stay {
+  border-color: #ffeb3b;
+  box-shadow: 0 0 8px rgba(255, 235, 59, 0.5);
+}
+.seat-btn.updating { opacity: 0.5; pointer-events: none; }
+.seat-btn:active { transform: scale(0.93); }
+
+/* Entrance mode: no pointer on seats */
+.mode-entrance .seat-btn { cursor: default; }
+.mode-entrance .seat-btn:active { transform: none; }
+
+/* Newly available animation */
+@keyframes pulse-green {
+  0%   { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.7); }
+  70%  { box-shadow: 0 0 0 18px rgba(76, 175, 80, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0); }
+}
+.seat-btn.newly-available {
+  animation: pulse-green 0.8s ease-out 3;
+}
+
+/* ===== Bulk Actions ===== */
+.bulk-actions {
+  padding: 0 16px 16px;
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.bulk-btn {
+  padding: 12px 24px;
+  border-radius: 8px;
+  border: 2px solid #555;
+  background: #16213e;
+  color: #eee;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.bulk-btn:hover { background: #0f3460; }
+.bulk-btn.danger { border-color: #f44336; color: #f44336; }
+.bulk-btn.success { border-color: #4caf50; color: #4caf50; }
+
+/* ===== Toast ===== */
+.toast-container {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 1000;
+  pointer-events: none;
+}
+.toast {
+  background: #333;
+  color: #fff;
+  padding: 12px 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+  opacity: 0;
+  transform: translateX(40px);
+  transition: opacity 0.3s, transform 0.3s;
+}
+.toast.show { opacity: 1; transform: translateX(0); }
+.toast.available-toast { border-left: 4px solid #4caf50; }
+
+/* ===== Admin Panel ===== */
+.admin-panel {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.admin-section {
+  background: #16213e;
+  border-radius: 12px;
+  padding: 20px;
+}
+.admin-section h2 {
+  font-size: 18px;
+  margin-bottom: 16px;
+  color: #ff9800;
+}
+.admin-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.admin-form label {
+  font-size: 13px;
+  color: #999;
+}
+.admin-form input, .admin-form select {
+  padding: 10px;
+  border-radius: 6px;
+  border: 1px solid #333;
+  background: #1a1a2e;
+  color: #eee;
+  font-size: 14px;
+}
+.admin-form button {
+  padding: 10px 20px;
+  border-radius: 6px;
+  border: none;
+  background: #ff9800;
+  color: #000;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.admin-form button:hover { background: #ffa726; }
+.admin-form .row {
+  display: flex;
+  gap: 10px;
+  align-items: end;
+}
+.admin-form .row > * { flex: 1; }
+
+.seat-type-list, .seat-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}
+.seat-type-item, .seat-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px;
+  background: #1a1a2e;
+  border-radius: 6px;
+}
+.delete-btn {
+  background: none;
+  border: 1px solid #f44336;
+  color: #f44336;
+  padding: 4px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+}
+.delete-btn:hover { background: #f44336; color: #fff; }
+
+/* ===== Setup Screen ===== */
+.setup-screen {
+  max-width: 500px;
+  margin: 60px auto;
+  padding: 20px;
+  text-align: center;
+}
+.setup-screen h1 { color: #e94560; margin-bottom: 8px; }
+.setup-screen p { color: #999; margin-bottom: 24px; font-size: 14px; }
+.setup-screen .setup-form {
+  background: #16213e;
+  border-radius: 12px;
+  padding: 24px;
+  text-align: left;
+}
+.setup-screen .setup-form label {
+  display: block;
+  font-size: 13px;
+  color: #999;
+  margin-bottom: 4px;
+  margin-top: 12px;
+}
+.setup-screen .setup-form input {
+  width: 100%;
+  padding: 10px;
+  border-radius: 6px;
+  border: 1px solid #333;
+  background: #1a1a2e;
+  color: #eee;
+  font-size: 14px;
+}
+.setup-screen .setup-form button {
+  margin-top: 20px;
+  width: 100%;
+  padding: 12px;
+  border-radius: 8px;
+  border: none;
+  background: #e94560;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.setup-screen .setup-form small { color: #666; font-size: 11px; }
+
+/* ===== Connection Status ===== */
+.connection-status {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  padding: 8px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 600;
+  z-index: 999;
+  display: none;
+}
+.connection-status.disconnected {
+  display: block;
+  background: #f44336;
+  color: #fff;
+}
+
+/* ===== Responsive ===== */
+@media (max-width: 600px) {
+  .summary-numbers { font-size: 22px; }
+  .seats-grid { grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); }
+  .seat-btn { min-height: 70px; font-size: 14px; }
+}
+</style>
+</head>
+<body>
+
+<!-- Connection Status Banner -->
+<div id="connectionStatus" class="connection-status">
+  接続が切れています。再接続中...
+</div>
+
+<!-- Setup Screen (shown when Firebase config is not set) -->
+<div id="setupScreen" class="setup-screen" style="display:none;">
+  <h1>EXE Lounge</h1>
+  <p>座席管理システムの初期設定</p>
+  <div class="setup-form">
+    <p style="color:#eee; font-size:14px; margin-bottom:16px;">
+      Firebase Realtime Database の設定情報を入力してください。
+      <br><small>Firebase コンソール → プロジェクト設定 → 全般 から取得できます。</small>
+    </p>
+    <label>API Key</label>
+    <input type="text" id="setupApiKey" placeholder="AIza...">
+    <label>Auth Domain</label>
+    <input type="text" id="setupAuthDomain" placeholder="your-project.firebaseapp.com">
+    <label>Database URL</label>
+    <input type="text" id="setupDbUrl" placeholder="https://your-project-default-rtdb.firebaseio.com">
+    <label>Project ID</label>
+    <input type="text" id="setupProjectId" placeholder="your-project-id">
+    <button onclick="saveFirebaseConfig()">設定を保存して開始</button>
+    <p style="margin-top:12px;"><small>※ この設定はブラウザのローカルストレージに保存されます。各デバイスで1回だけ設定が必要です。</small></p>
+  </div>
+</div>
+
+<!-- Main App -->
+<div id="app" style="display:none;">
+  <!-- Header -->
+  <div class="header">
+    <h1 id="loungeName">EXE Lounge</h1>
+    <div>
+      <span class="mode-label" id="modeLabel"></span>
+    </div>
+  </div>
+
+  <!-- Summary -->
+  <div class="summary">
+    <div class="summary-numbers">
+      空き <span class="available-count" id="availCount">-</span>
+      <span class="total-count">/ <span id="totalCount">-</span></span>
+    </div>
+    <div class="progress-bar">
+      <div class="occupied-fill" id="occupiedBar" style="width:0%"></div>
+    </div>
+    <div class="clock" id="clock"></div>
+  </div>
+
+  <!-- Seat Sections -->
+  <div class="seat-sections" id="seatSections"></div>
+
+  <!-- Bulk Actions (staff only) -->
+  <div class="bulk-actions" id="bulkActions" style="display:none;">
+    <button class="bulk-btn success" onclick="bulkSetAll('available')">全席を空きにする</button>
+    <button class="bulk-btn danger" onclick="bulkSetAll('occupied')">全席を使用中にする</button>
+  </div>
+
+  <!-- Admin Panel -->
+  <div class="admin-panel" id="adminPanel" style="display:none;"></div>
+</div>
+
+<!-- Toast Container -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- Firebase SDK (compat for simplicity) -->
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
+
+<script>
+// ===== App State =====
+let db = null;
+let currentMode = 'entrance'; // 'staff', 'entrance', 'admin'
+let previousSeatStates = {};
+let audioCtx = null;
+let isFirstLoad = true;
+
+// ===== Initialization =====
+function init() {
+  const params = new URLSearchParams(window.location.search);
+  currentMode = params.get('mode') || 'entrance';
+
+  const config = loadFirebaseConfig();
+  if (!config) {
+    document.getElementById('setupScreen').style.display = '';
+    return;
+  }
+
+  try {
+    if (!firebase.apps.length) {
+      firebase.initializeApp(config);
+    }
+    db = firebase.database();
+  } catch (e) {
+    showToast('Firebase接続エラー: ' + e.message);
+    document.getElementById('setupScreen').style.display = '';
+    return;
+  }
+
+  document.body.className = 'mode-' + currentMode;
+  document.getElementById('app').style.display = '';
+
+  const modeLabels = { staff: 'スタッフ操作', entrance: '入口モニター', admin: '管理画面' };
+  document.getElementById('modeLabel').textContent = modeLabels[currentMode] || currentMode;
+
+  if (currentMode === 'staff') {
+    document.getElementById('bulkActions').style.display = '';
+  }
+
+  if (currentMode === 'admin') {
+    document.getElementById('adminPanel').style.display = '';
+    renderAdminPanel();
+  }
+
+  startClock();
+  listenToSeats();
+  listenToSettings();
+  monitorConnection();
+}
+
+// ===== Firebase Config (LocalStorage) =====
+function loadFirebaseConfig() {
+  const stored = localStorage.getItem('exe_firebase_config');
+  if (!stored) return null;
+  try {
+    return JSON.parse(stored);
+  } catch {
+    return null;
+  }
+}
+
+function saveFirebaseConfig() {
+  const config = {
+    apiKey: document.getElementById('setupApiKey').value.trim(),
+    authDomain: document.getElementById('setupAuthDomain').value.trim(),
+    databaseURL: document.getElementById('setupDbUrl').value.trim(),
+    projectId: document.getElementById('setupProjectId').value.trim()
+  };
+
+  if (!config.apiKey || !config.databaseURL) {
+    showToast('API Key と Database URL は必須です');
+    return;
+  }
+
+  localStorage.setItem('exe_firebase_config', JSON.stringify(config));
+  location.reload();
+}
+
+// ===== Connection Monitor =====
+function monitorConnection() {
+  const connRef = db.ref('.info/connected');
+  const statusEl = document.getElementById('connectionStatus');
+  connRef.on('value', function(snap) {
+    if (snap.val() === true) {
+      statusEl.className = 'connection-status';
+    } else {
+      statusEl.className = 'connection-status disconnected';
+    }
+  });
+}
+
+// ===== Real-time Listeners =====
+function listenToSettings() {
+  db.ref('settings').on('value', function(snap) {
+    const settings = snap.val() || {};
+    if (settings.loungeName) {
+      document.getElementById('loungeName').textContent = settings.loungeName;
+      document.title = settings.loungeName + ' - 座席管理';
+    }
+  });
+}
+
+function listenToSeats() {
+  // Listen to both seatTypes and seats
+  let seatTypes = {};
+  let seats = {};
+  let typesLoaded = false;
+  let seatsLoaded = false;
+
+  db.ref('seatTypes').on('value', function(snap) {
+    seatTypes = snap.val() || {};
+    typesLoaded = true;
+    if (seatsLoaded) renderAll(seatTypes, seats);
+  });
+
+  db.ref('seats').on('value', function(snap) {
+    seats = snap.val() || {};
+    seatsLoaded = true;
+    if (typesLoaded) renderAll(seatTypes, seats);
+  });
+}
+
+// ===== Rendering =====
+function renderAll(seatTypes, seats) {
+  const container = document.getElementById('seatSections');
+
+  // Group seats by type
+  const groups = {};
+  const seatList = Object.entries(seats).sort(function(a, b) {
+    return (a[1].order || 0) - (b[1].order || 0);
+  });
+
+  seatList.forEach(function(entry) {
+    const id = entry[0];
+    const seat = entry[1];
+    const type = seat.type || 'other';
+    if (!groups[type]) groups[type] = [];
+    groups[type].push({ id: id, data: seat });
+  });
+
+  // Sort groups by seatType order
+  const sortedTypes = Object.keys(groups).sort(function(a, b) {
+    var oa = (seatTypes[a] && seatTypes[a].order) || 999;
+    var ob = (seatTypes[b] && seatTypes[b].order) || 999;
+    return oa - ob;
+  });
+
+  // Calculate totals
+  let totalSeats = seatList.length;
+  let availableSeats = seatList.filter(function(e) { return e[1].status === 'available'; }).length;
+
+  document.getElementById('availCount').textContent = availableSeats;
+  document.getElementById('totalCount').textContent = totalSeats;
+
+  const occupiedPct = totalSeats > 0 ? ((totalSeats - availableSeats) / totalSeats * 100) : 0;
+  document.getElementById('occupiedBar').style.width = occupiedPct + '%';
+
+  // Build sections HTML
+  let html = '';
+  sortedTypes.forEach(function(type) {
+    const typeInfo = seatTypes[type] || { label: type, color: '#888' };
+    const typeSeats = groups[type];
+    const typeAvail = typeSeats.filter(function(s) { return s.data.status === 'available'; }).length;
+
+    html += '<div class="seat-section">';
+    html += '<div class="section-header">';
+    html += '<div class="section-title">';
+    html += '<span class="type-dot" style="background:' + escapeHtml(typeInfo.color || '#888') + '"></span>';
+    html += escapeHtml(typeInfo.label || type);
+    html += '</div>';
+    html += '<div class="section-count">空き <span class="avail">' + typeAvail + '</span> / ' + typeSeats.length + '</div>';
+    html += '</div>';
+    html += '<div class="seats-grid">';
+
+    typeSeats.forEach(function(seat) {
+      var status = seat.data.status || 'available';
+      var statusText = status === 'available' ? '空き' : '使用中';
+      var duration = '';
+      var longStay = '';
+
+      if (status === 'occupied' && seat.data.occupiedSince) {
+        var mins = Math.floor((Date.now() - seat.data.occupiedSince) / 60000);
+        if (mins < 60) {
+          duration = mins + '分';
+        } else {
+          duration = Math.floor(mins / 60) + '時間' + (mins % 60) + '分';
+        }
+        if (mins >= 90) longStay = ' long-stay';
+      }
+
+      // Check for newly available (entrance mode only)
+      var newlyAvail = '';
+      if (currentMode === 'entrance' && !isFirstLoad) {
+        if (previousSeatStates[seat.id] === 'occupied' && status === 'available') {
+          newlyAvail = ' newly-available';
+          playNotificationTone();
+          showToast(escapeHtml(seat.data.label || seat.id) + ' が空きました', 'available-toast');
+        }
+      }
+
+      var clickHandler = currentMode === 'staff' ? ' onclick="toggleSeat(\'' + escapeHtml(seat.id) + '\', this)"' : '';
+
+      html += '<button class="seat-btn ' + status + longStay + newlyAvail + '"' + clickHandler + ' data-seat-id="' + escapeHtml(seat.id) + '">';
+      html += '<span class="seat-label">' + escapeHtml(seat.data.label || seat.id) + '</span>';
+      html += '<span class="seat-status">' + statusText + '</span>';
+      if (duration) {
+        html += '<span class="seat-duration">' + duration + '</span>';
+      }
+      html += '</button>';
+    });
+
+    html += '</div></div>';
+  });
+
+  if (totalSeats === 0) {
+    html = '<div style="text-align:center; padding:40px; color:#666;">';
+    html += '<p style="font-size:18px;">座席が登録されていません</p>';
+    html += '<p style="margin-top:8px;">管理画面 (?mode=admin) から座席を追加してください</p>';
+    html += '</div>';
+  }
+
+  container.innerHTML = html;
+
+  // Update previous states
+  seatList.forEach(function(entry) {
+    previousSeatStates[entry[0]] = entry[1].status;
+  });
+  isFirstLoad = false;
+}
+
+// ===== Seat Actions =====
+function toggleSeat(seatId, btnEl) {
+  if (btnEl) btnEl.classList.add('updating');
+
+  var seatRef = db.ref('seats/' + seatId);
+  seatRef.once('value').then(function(snap) {
+    var seat = snap.val();
+    if (!seat) return;
+
+    var newStatus = seat.status === 'occupied' ? 'available' : 'occupied';
+    var now = Date.now();
+    var updates = {
+      status: newStatus,
+      lastUpdated: now
+    };
+
+    if (newStatus === 'occupied') {
+      updates.occupiedSince = now;
+    } else {
+      updates.occupiedSince = null;
+    }
+
+    return seatRef.update(updates).then(function() {
+      // Log the action
+      db.ref('log').push({
+        seatId: seatId,
+        action: newStatus,
+        timestamp: now
+      });
+    });
+  }).catch(function(err) {
+    showToast('エラー: ' + err.message);
+  }).finally(function() {
+    if (btnEl) btnEl.classList.remove('updating');
+  });
+}
+
+function bulkSetAll(status) {
+  var confirmMsg = status === 'available' ? '全席を空きにしますか？' : '全席を使用中にしますか？';
+  if (!confirm(confirmMsg)) return;
+
+  var now = Date.now();
+  db.ref('seats').once('value').then(function(snap) {
+    var seats = snap.val() || {};
+    var updates = {};
+    Object.keys(seats).forEach(function(id) {
+      updates[id + '/status'] = status;
+      updates[id + '/lastUpdated'] = now;
+      if (status === 'occupied') {
+        updates[id + '/occupiedSince'] = now;
+      } else {
+        updates[id + '/occupiedSince'] = null;
+      }
+    });
+    return db.ref('seats').update(updates);
+  }).then(function() {
+    showToast('全席を' + (status === 'available' ? '空き' : '使用中') + 'にしました');
+  });
+}
+
+// ===== Admin Panel =====
+function renderAdminPanel() {
+  var panel = document.getElementById('adminPanel');
+  panel.innerHTML = ''
+    + '<div class="admin-section">'
+    + '  <h2>座席タイプ管理</h2>'
+    + '  <div class="admin-form">'
+    + '    <div class="row">'
+    + '      <div><label>タイプID (英字)</label><input type="text" id="newTypeId" placeholder="table"></div>'
+    + '      <div><label>表示名</label><input type="text" id="newTypeLabel" placeholder="テーブル"></div>'
+    + '      <div><label>色</label><input type="color" id="newTypeColor" value="#4CAF50"></div>'
+    + '      <div><label>順序</label><input type="number" id="newTypeOrder" value="1" min="1"></div>'
+    + '    </div>'
+    + '    <button onclick="addSeatType()">タイプを追加</button>'
+    + '  </div>'
+    + '  <div class="seat-type-list" id="seatTypeList"></div>'
+    + '</div>'
+    + '<div class="admin-section">'
+    + '  <h2>座席管理</h2>'
+    + '  <div class="admin-form">'
+    + '    <div class="row">'
+    + '      <div><label>座席ID (英数字)</label><input type="text" id="newSeatId" placeholder="T1"></div>'
+    + '      <div><label>表示名</label><input type="text" id="newSeatLabel" placeholder="テーブル1"></div>'
+    + '      <div><label>タイプ</label><select id="newSeatType"></select></div>'
+    + '      <div><label>順序</label><input type="number" id="newSeatOrder" value="1" min="1"></div>'
+    + '    </div>'
+    + '    <button onclick="addSeat()">座席を追加</button>'
+    + '  </div>'
+    + '  <div class="seat-list" id="seatListAdmin"></div>'
+    + '</div>'
+    + '<div class="admin-section">'
+    + '  <h2>設定</h2>'
+    + '  <div class="admin-form">'
+    + '    <label>ラウンジ名</label>'
+    + '    <input type="text" id="settingsLoungeName" placeholder="EXE Lounge">'
+    + '    <button onclick="saveSettings()">設定を保存</button>'
+    + '  </div>'
+    + '</div>'
+    + '<div class="admin-section">'
+    + '  <h2>Firebase設定リセット</h2>'
+    + '  <div class="admin-form">'
+    + '    <button onclick="resetConfig()" style="background:#f44336;">ブラウザの接続設定をリセット</button>'
+    + '  </div>'
+    + '</div>';
+
+  // Listen for seat types
+  db.ref('seatTypes').on('value', function(snap) {
+    var types = snap.val() || {};
+    var html = '';
+    var selectHtml = '';
+    Object.keys(types).sort(function(a, b) {
+      return (types[a].order || 0) - (types[b].order || 0);
+    }).forEach(function(id) {
+      var t = types[id];
+      html += '<div class="seat-type-item">'
+        + '<span><span class="type-dot" style="background:' + escapeHtml(t.color || '#888') + ';display:inline-block;width:12px;height:12px;border-radius:50%;margin-right:8px;"></span>'
+        + escapeHtml(id) + ' - ' + escapeHtml(t.label) + ' (順序: ' + t.order + ')</span>'
+        + '<button class="delete-btn" onclick="deleteSeatType(\'' + escapeHtml(id) + '\')">削除</button>'
+        + '</div>';
+      selectHtml += '<option value="' + escapeHtml(id) + '">' + escapeHtml(t.label) + '</option>';
+    });
+    document.getElementById('seatTypeList').innerHTML = html || '<p style="color:#666;padding:8px;">タイプが未登録です</p>';
+    document.getElementById('newSeatType').innerHTML = selectHtml;
+  });
+
+  // Listen for seats
+  db.ref('seats').on('value', function(snap) {
+    var seats = snap.val() || {};
+    var html = '';
+    Object.keys(seats).sort(function(a, b) {
+      return (seats[a].order || 0) - (seats[b].order || 0);
+    }).forEach(function(id) {
+      var s = seats[id];
+      html += '<div class="seat-item">'
+        + '<span>' + escapeHtml(id) + ' - ' + escapeHtml(s.label || id) + ' (' + escapeHtml(s.type) + ', 順序: ' + (s.order || 0) + ')</span>'
+        + '<button class="delete-btn" onclick="deleteSeat(\'' + escapeHtml(id) + '\')">削除</button>'
+        + '</div>';
+    });
+    document.getElementById('seatListAdmin').innerHTML = html || '<p style="color:#666;padding:8px;">座席が未登録です</p>';
+  });
+
+  // Load settings
+  db.ref('settings').once('value').then(function(snap) {
+    var s = snap.val() || {};
+    document.getElementById('settingsLoungeName').value = s.loungeName || 'EXE Lounge';
+  });
+}
+
+function addSeatType() {
+  var id = document.getElementById('newTypeId').value.trim();
+  var label = document.getElementById('newTypeLabel').value.trim();
+  var color = document.getElementById('newTypeColor').value;
+  var order = parseInt(document.getElementById('newTypeOrder').value) || 1;
+
+  if (!id || !label) { showToast('タイプIDと表示名を入力してください'); return; }
+
+  db.ref('seatTypes/' + id).set({ label: label, color: color, order: order }).then(function() {
+    showToast('タイプ「' + label + '」を追加しました');
+    document.getElementById('newTypeId').value = '';
+    document.getElementById('newTypeLabel').value = '';
+  });
+}
+
+function deleteSeatType(id) {
+  if (!confirm('タイプ「' + id + '」を削除しますか？')) return;
+  db.ref('seatTypes/' + id).remove().then(function() {
+    showToast('タイプを削除しました');
+  });
+}
+
+function addSeat() {
+  var id = document.getElementById('newSeatId').value.trim();
+  var label = document.getElementById('newSeatLabel').value.trim();
+  var type = document.getElementById('newSeatType').value;
+  var order = parseInt(document.getElementById('newSeatOrder').value) || 1;
+
+  if (!id || !label || !type) { showToast('全項目を入力してください'); return; }
+
+  db.ref('seats/' + id).set({
+    type: type,
+    label: label,
+    status: 'available',
+    lastUpdated: Date.now(),
+    occupiedSince: null,
+    order: order
+  }).then(function() {
+    showToast('座席「' + label + '」を追加しました');
+    document.getElementById('newSeatId').value = '';
+    document.getElementById('newSeatLabel').value = '';
+  });
+}
+
+function deleteSeat(id) {
+  if (!confirm('座席「' + id + '」を削除しますか？')) return;
+  db.ref('seats/' + id).remove().then(function() {
+    showToast('座席を削除しました');
+  });
+}
+
+function saveSettings() {
+  var loungeName = document.getElementById('settingsLoungeName').value.trim();
+  db.ref('settings').update({ loungeName: loungeName }).then(function() {
+    showToast('設定を保存しました');
+  });
+}
+
+function resetConfig() {
+  if (!confirm('ブラウザのFirebase接続設定をリセットしますか？\n再度設定画面が表示されます。')) return;
+  localStorage.removeItem('exe_firebase_config');
+  location.reload();
+}
+
+// ===== Notification Sound =====
+function playNotificationTone() {
+  try {
+    if (!audioCtx) {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    var osc = audioCtx.createOscillator();
+    var gain = audioCtx.createGain();
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.frequency.value = 800;
+    gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+    osc.start(audioCtx.currentTime);
+    osc.stop(audioCtx.currentTime + 0.3);
+  } catch (e) {
+    // Audio not supported
+  }
+}
+
+// ===== Toast =====
+function showToast(message, extraClass) {
+  var container = document.getElementById('toastContainer');
+  var toast = document.createElement('div');
+  toast.className = 'toast' + (extraClass ? ' ' + extraClass : '');
+  toast.textContent = message;
+  container.appendChild(toast);
+
+  requestAnimationFrame(function() {
+    toast.classList.add('show');
+  });
+
+  setTimeout(function() {
+    toast.classList.remove('show');
+    setTimeout(function() { toast.remove(); }, 300);
+  }, 3000);
+}
+
+// ===== Clock =====
+function startClock() {
+  function update() {
+    var now = new Date();
+    document.getElementById('clock').textContent = now.toLocaleTimeString('ja-JP');
+  }
+  update();
+  setInterval(update, 1000);
+}
+
+// ===== Duration updater (for entrance mode) =====
+setInterval(function() {
+  document.querySelectorAll('.seat-btn.occupied .seat-duration').forEach(function(el) {
+    var btn = el.closest('.seat-btn');
+    var seatId = btn.getAttribute('data-seat-id');
+    // Duration text is already rendered; re-render will update it
+  });
+  // Trigger a lightweight re-render for durations
+  if (currentMode === 'entrance' && db) {
+    db.ref('seats').once('value'); // triggers the listener
+  }
+}, 60000); // Update durations every minute
+
+// ===== Utility =====
+function escapeHtml(str) {
+  if (!str) return '';
+  var div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+// ===== Start =====
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
