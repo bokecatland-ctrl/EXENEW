@@ -154,6 +154,11 @@ a { color: #64b5f6; }
   color: #fff;
   border-color: #f44336;
 }
+.seat-btn.guiding {
+  background: #e65100;
+  color: #fff;
+  border-color: #ff9800;
+}
 .seat-btn.occupied.long-stay {
   border-color: #ffeb3b;
   box-shadow: 0 0 8px rgba(255, 235, 59, 0.5);
@@ -161,9 +166,11 @@ a { color: #64b5f6; }
 .seat-btn.updating { opacity: 0.5; pointer-events: none; }
 .seat-btn:active { transform: scale(0.93); }
 
-/* Entrance mode: no pointer on seats */
-.mode-entrance .seat-btn { cursor: default; }
-.mode-entrance .seat-btn:active { transform: none; }
+/* Entrance mode: only available/guiding seats are clickable */
+.mode-entrance .seat-btn { cursor: default; pointer-events: none; }
+.mode-entrance .seat-btn.available,
+.mode-entrance .seat-btn.guiding { cursor: pointer; pointer-events: auto; }
+.mode-entrance .seat-btn.occupied:active { transform: none; }
 
 /* Newly available animation */
 @keyframes pulse-green {
@@ -421,6 +428,11 @@ a { color: #64b5f6; }
   background: #c62828;
   color: #fff;
   border: 2px solid #f44336;
+}
+.map-cell.guiding {
+  background: #e65100;
+  color: #fff;
+  border: 2px solid #ff9800;
 }
 .map-cell.occupied.long-stay {
   border-color: #ffeb3b;
@@ -806,7 +818,7 @@ function renderAll(seatTypes, seats) {
 
     typeSeats.forEach(function(seat) {
       var status = seat.data.status || 'available';
-      var statusText = status === 'available' ? '空き' : '使用中';
+      var statusText = status === 'available' ? '空き' : status === 'guiding' ? '案内中' : '使用中';
       var duration = '';
       var longStay = '';
 
@@ -830,7 +842,12 @@ function renderAll(seatTypes, seats) {
         }
       }
 
-      var clickHandler = currentMode === 'staff' ? ' onclick="toggleSeat(\'' + escapeHtml(seat.id) + '\', this)"' : '';
+      var clickHandler = '';
+      if (currentMode === 'staff') {
+        clickHandler = ' onclick="toggleSeat(\'' + escapeHtml(seat.id) + '\', this)"';
+      } else if (currentMode === 'entrance' && (status === 'available' || status === 'guiding')) {
+        clickHandler = ' onclick="guideSeat(\'' + escapeHtml(seat.id) + '\', this)"';
+      }
 
       html += '<button class="seat-btn ' + status + longStay + newlyAvail + '"' + clickHandler + ' data-seat-id="' + escapeHtml(seat.id) + '">';
       html += '<span class="seat-label">' + escapeHtml(seat.data.label || seat.id) + '</span>';
@@ -908,7 +925,7 @@ function renderFloorMap(seatTypes, seats, seatList) {
       if (gridMap[key]) {
         var seat = gridMap[key];
         var status = seat.data.status || 'available';
-        var statusText = status === 'available' ? '空き' : '使用中';
+        var statusText = status === 'available' ? '空き' : status === 'guiding' ? '案内中' : '使用中';
         var duration = '';
         var longStay = '';
 
@@ -923,7 +940,13 @@ function renderFloorMap(seatTypes, seats, seatList) {
         }
 
         var clickable = currentMode === 'staff' ? ' staff-clickable' : '';
-        var clickHandler = currentMode === 'staff' ? ' onclick="toggleSeat(\'' + escapeHtml(seat.id) + '\')"' : '';
+        var clickHandler = '';
+        if (currentMode === 'staff') {
+          clickHandler = ' onclick="toggleSeat(\'' + escapeHtml(seat.id) + '\')"';
+        } else if (currentMode === 'entrance' && (status === 'available' || status === 'guiding')) {
+          clickable = ' staff-clickable';
+          clickHandler = ' onclick="guideSeat(\'' + escapeHtml(seat.id) + '\')"';
+        }
 
         html += '<div class="map-cell ' + status + longStay + clickable + '"' + clickHandler + ' data-seat-id="' + escapeHtml(seat.id) + '" style="grid-row:' + r + '; grid-column:' + c + ';">';
         html += '<span class="seat-label">' + escapeHtml(seat.data.label || seat.id) + '</span>';
@@ -1004,6 +1027,7 @@ function toggleSeat(seatId, btnEl) {
     var seat = snap.val();
     if (!seat) return;
 
+    // available → occupied, occupied → available, guiding → occupied
     var newStatus = seat.status === 'occupied' ? 'available' : 'occupied';
     var now = Date.now();
     var updates = {
@@ -1022,6 +1046,35 @@ function toggleSeat(seatId, btnEl) {
       db.ref('log').push({
         seatId: seatId,
         action: newStatus,
+        timestamp: now
+      });
+    });
+  }).catch(function(err) {
+    showToast('エラー: ' + err.message);
+  }).finally(function() {
+    if (btnEl) btnEl.classList.remove('updating');
+  });
+}
+
+function guideSeat(seatId, btnEl) {
+  if (btnEl) btnEl.classList.add('updating');
+
+  var seatRef = db.ref('seats/' + seatId);
+  seatRef.once('value').then(function(snap) {
+    var seat = snap.val();
+    if (!seat) return;
+
+    var newStatus = seat.status === 'guiding' ? 'available' : 'guiding';
+    var now = Date.now();
+    var updates = {
+      status: newStatus,
+      lastUpdated: now
+    };
+
+    return seatRef.update(updates).then(function() {
+      db.ref('log').push({
+        seatId: seatId,
+        action: newStatus === 'guiding' ? 'guiding' : 'cancel-guiding',
         timestamp: now
       });
     });
