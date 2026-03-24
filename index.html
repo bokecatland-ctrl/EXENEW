@@ -363,11 +363,174 @@ a { color: #64b5f6; }
   color: #fff;
 }
 
+/* ===== View Toggle ===== */
+.view-toggle {
+  display: flex;
+  gap: 4px;
+  background: #1a1a2e;
+  border-radius: 8px;
+  padding: 2px;
+}
+.view-toggle button {
+  padding: 6px 14px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: #999;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+.view-toggle button.active {
+  background: #0f3460;
+  color: #64b5f6;
+}
+
+/* ===== Floor Map ===== */
+.floor-map {
+  padding: 16px;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.floor-map-grid {
+  display: grid;
+  gap: 8px;
+  min-width: fit-content;
+}
+.map-cell {
+  width: 100px;
+  height: 80px;
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  font-weight: 700;
+  font-size: 14px;
+  transition: transform 0.1s, box-shadow 0.3s;
+  position: relative;
+}
+.map-cell.available {
+  background: #2e7d32;
+  color: #fff;
+  border: 2px solid #4caf50;
+}
+.map-cell.occupied {
+  background: #c62828;
+  color: #fff;
+  border: 2px solid #f44336;
+}
+.map-cell.occupied.long-stay {
+  border-color: #ffeb3b;
+  box-shadow: 0 0 8px rgba(255, 235, 59, 0.5);
+}
+.map-cell .seat-label { font-size: 14px; }
+.map-cell .seat-status { font-size: 10px; font-weight: 400; opacity: 0.9; }
+.map-cell .seat-duration {
+  font-size: 9px;
+  font-weight: 400;
+  opacity: 0.8;
+  position: absolute;
+  bottom: 3px;
+}
+.map-cell.empty-cell {
+  background: transparent;
+  border: 2px dashed #333;
+  opacity: 0.3;
+}
+.map-cell.staff-clickable { cursor: pointer; }
+.map-cell.staff-clickable:active { transform: scale(0.93); }
+
+/* Admin layout editor */
+.layout-editor-container {
+  padding: 16px;
+  overflow: auto;
+}
+.layout-editor {
+  display: grid;
+  gap: 4px;
+  min-width: fit-content;
+}
+.layout-cell {
+  width: 90px;
+  height: 70px;
+  border: 2px dashed #333;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  color: #666;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+}
+.layout-cell:hover {
+  border-color: #ff9800;
+  background: rgba(255, 152, 0, 0.1);
+}
+.layout-cell.has-seat {
+  background: #0f3460;
+  border-color: #64b5f6;
+  color: #64b5f6;
+  font-weight: 700;
+  font-size: 12px;
+  cursor: grab;
+}
+.layout-cell.has-seat:active { cursor: grabbing; }
+.layout-cell.drag-over {
+  border-color: #ff9800;
+  background: rgba(255, 152, 0, 0.2);
+}
+.layout-controls {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+.layout-controls label { color: #999; font-size: 13px; }
+.layout-controls input {
+  width: 60px;
+  padding: 6px;
+  border-radius: 4px;
+  border: 1px solid #333;
+  background: #1a1a2e;
+  color: #eee;
+  font-size: 13px;
+}
+
+/* ===== Bulk Init Banner ===== */
+.init-banner {
+  background: #0f3460;
+  border: 2px solid #64b5f6;
+  border-radius: 12px;
+  padding: 20px;
+  margin: 16px;
+  text-align: center;
+}
+.init-banner h3 { color: #64b5f6; margin-bottom: 8px; }
+.init-banner p { color: #999; font-size: 14px; margin-bottom: 16px; }
+.init-banner button {
+  padding: 12px 32px;
+  border-radius: 8px;
+  border: none;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  margin: 4px;
+}
+.init-banner .btn-primary { background: #e94560; color: #fff; }
+.init-banner .btn-primary:hover { background: #d63851; }
+
 /* ===== Responsive ===== */
 @media (max-width: 600px) {
   .summary-numbers { font-size: 22px; }
   .seats-grid { grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); }
   .seat-btn { min-height: 70px; font-size: 14px; }
+  .map-cell { width: 80px; height: 65px; font-size: 12px; }
+  .layout-cell { width: 70px; height: 55px; }
 }
 </style>
 </head>
@@ -420,10 +583,17 @@ a { color: #64b5f6; }
       <div class="occupied-fill" id="occupiedBar" style="width:0%"></div>
     </div>
     <div class="clock" id="clock"></div>
+    <div class="view-toggle">
+      <button id="viewListBtn" class="active" onclick="setViewMode('list')">リスト</button>
+      <button id="viewMapBtn" onclick="setViewMode('map')">マップ</button>
+    </div>
   </div>
 
-  <!-- Seat Sections -->
+  <!-- Seat Sections (list view) -->
   <div class="seat-sections" id="seatSections"></div>
+
+  <!-- Floor Map (map view) -->
+  <div class="floor-map" id="floorMap" style="display:none;"></div>
 
   <!-- Bulk Actions (staff only) -->
   <div class="bulk-actions" id="bulkActions" style="display:none;">
@@ -446,9 +616,12 @@ a { color: #64b5f6; }
 // ===== App State =====
 let db = null;
 let currentMode = 'entrance'; // 'staff', 'entrance', 'admin'
+let currentView = 'list'; // 'list', 'map'
 let previousSeatStates = {};
 let audioCtx = null;
 let isFirstLoad = true;
+let cachedSeatTypes = {};
+let cachedSeats = {};
 
 // ===== Initialization =====
 function init() {
@@ -491,6 +664,18 @@ function init() {
   listenToSeats();
   listenToSettings();
   monitorConnection();
+}
+
+// ===== View Mode =====
+function setViewMode(mode) {
+  currentView = mode;
+  document.getElementById('viewListBtn').classList.toggle('active', mode === 'list');
+  document.getElementById('viewMapBtn').classList.toggle('active', mode === 'map');
+  document.getElementById('seatSections').style.display = mode === 'list' ? '' : 'none';
+  document.getElementById('floorMap').style.display = mode === 'map' ? '' : 'none';
+  if (Object.keys(cachedSeats).length > 0) {
+    renderAll(cachedSeatTypes, cachedSeats);
+  }
 }
 
 // ===== Firebase Config (LocalStorage) =====
@@ -567,6 +752,8 @@ function listenToSeats() {
 
 // ===== Rendering =====
 function renderAll(seatTypes, seats) {
+  cachedSeatTypes = seatTypes;
+  cachedSeats = seats;
   const container = document.getElementById('seatSections');
 
   // Group seats by type
@@ -666,11 +853,146 @@ function renderAll(seatTypes, seats) {
 
   container.innerHTML = html;
 
+  // Render map view
+  if (currentView === 'map') {
+    renderFloorMap(seatTypes, seats, seatList);
+  }
+
   // Update previous states
   seatList.forEach(function(entry) {
     previousSeatStates[entry[0]] = entry[1].status;
   });
   isFirstLoad = false;
+}
+
+// ===== Floor Map Rendering =====
+function renderFloorMap(seatTypes, seats, seatList) {
+  var mapContainer = document.getElementById('floorMap');
+
+  // Determine grid dimensions from seat positions
+  var maxRow = 1, maxCol = 1;
+  seatList.forEach(function(entry) {
+    var s = entry[1];
+    if (s.mapRow && s.mapRow > maxRow) maxRow = s.mapRow;
+    if (s.mapCol && s.mapCol > maxCol) maxCol = s.mapCol;
+  });
+
+  // If no positions set, auto-layout
+  var hasPositions = seatList.some(function(e) { return e[1].mapRow && e[1].mapCol; });
+
+  if (!hasPositions && seatList.length > 0) {
+    // Auto arrange: tables first, then sofas
+    var cols = Math.min(7, Math.ceil(Math.sqrt(seatList.length)));
+    seatList.forEach(function(entry, i) {
+      entry[1]._autoRow = Math.floor(i / cols) + 1;
+      entry[1]._autoCol = (i % cols) + 1;
+    });
+    maxRow = Math.ceil(seatList.length / cols);
+    maxCol = cols;
+  }
+
+  // Build grid
+  var gridMap = {};
+  seatList.forEach(function(entry) {
+    var s = entry[1];
+    var r = s.mapRow || s._autoRow || 1;
+    var c = s.mapCol || s._autoCol || 1;
+    gridMap[r + ',' + c] = { id: entry[0], data: s };
+  });
+
+  var html = '<div class="floor-map-grid" style="grid-template-columns: repeat(' + maxCol + ', 100px); grid-template-rows: repeat(' + maxRow + ', 80px);">';
+
+  for (var r = 1; r <= maxRow; r++) {
+    for (var c = 1; c <= maxCol; c++) {
+      var key = r + ',' + c;
+      if (gridMap[key]) {
+        var seat = gridMap[key];
+        var status = seat.data.status || 'available';
+        var statusText = status === 'available' ? '空き' : '使用中';
+        var duration = '';
+        var longStay = '';
+
+        if (status === 'occupied' && seat.data.occupiedSince) {
+          var mins = Math.floor((Date.now() - seat.data.occupiedSince) / 60000);
+          if (mins < 60) {
+            duration = mins + '分';
+          } else {
+            duration = Math.floor(mins / 60) + '時間' + (mins % 60) + '分';
+          }
+          if (mins >= 90) longStay = ' long-stay';
+        }
+
+        var clickable = currentMode === 'staff' ? ' staff-clickable' : '';
+        var clickHandler = currentMode === 'staff' ? ' onclick="toggleSeat(\'' + escapeHtml(seat.id) + '\')"' : '';
+
+        html += '<div class="map-cell ' + status + longStay + clickable + '"' + clickHandler + ' data-seat-id="' + escapeHtml(seat.id) + '" style="grid-row:' + r + '; grid-column:' + c + ';">';
+        html += '<span class="seat-label">' + escapeHtml(seat.data.label || seat.id) + '</span>';
+        html += '<span class="seat-status">' + statusText + '</span>';
+        if (duration) {
+          html += '<span class="seat-duration">' + duration + '</span>';
+        }
+        html += '</div>';
+      }
+    }
+  }
+
+  html += '</div>';
+
+  if (!hasPositions && seatList.length > 0) {
+    html += '<p style="text-align:center; color:#666; margin-top:12px; font-size:12px;">※ 管理画面の「フロアマップ配置」で座席の位置を設定できます</p>';
+  }
+
+  mapContainer.innerHTML = html;
+}
+
+// ===== Bulk Seat Initialization =====
+function initializeDefaultSeats() {
+  if (!confirm('テーブル19卓・ソファ7卓を一括登録します。\n既存の座席データは上書きされます。よろしいですか？')) return;
+
+  var now = Date.now();
+  var updates = {};
+
+  // Seat types
+  updates['seatTypes/table'] = { label: 'テーブル', color: '#4CAF50', order: 1 };
+  updates['seatTypes/sofa'] = { label: 'ソファ', color: '#FF9800', order: 2 };
+
+  // Tables: T1-T19
+  for (var i = 1; i <= 19; i++) {
+    var id = 'T' + i;
+    var row = Math.ceil(i / 5);
+    var col = ((i - 1) % 5) + 1;
+    updates['seats/' + id] = {
+      type: 'table',
+      label: 'T' + i,
+      status: 'available',
+      lastUpdated: now,
+      occupiedSince: null,
+      order: i,
+      mapRow: row,
+      mapCol: col
+    };
+  }
+
+  // Sofas: S1-S7
+  for (var j = 1; j <= 7; j++) {
+    var sid = 'S' + j;
+    updates['seats/' + sid] = {
+      type: 'sofa',
+      label: 'S' + j,
+      status: 'available',
+      lastUpdated: now,
+      occupiedSince: null,
+      order: 19 + j,
+      mapRow: 6,
+      mapCol: j
+    };
+  }
+
+  db.ref().update(updates).then(function() {
+    showToast('テーブル19卓・ソファ7卓を登録しました');
+  }).catch(function(err) {
+    showToast('エラー: ' + err.message);
+  });
 }
 
 // ===== Seat Actions =====
@@ -737,6 +1059,23 @@ function bulkSetAll(status) {
 function renderAdminPanel() {
   var panel = document.getElementById('adminPanel');
   panel.innerHTML = ''
+    + '<div class="admin-section">'
+    + '  <h2>一括登録</h2>'
+    + '  <p style="color:#999;font-size:13px;margin-bottom:12px;">テーブル19卓（T1〜T19）+ ソファ7卓（S1〜S7）を一括で登録します。</p>'
+    + '  <div class="admin-form">'
+    + '    <button onclick="initializeDefaultSeats()" style="background:#e94560;">テーブル19卓・ソファ7卓を一括登録</button>'
+    + '  </div>'
+    + '</div>'
+    + '<div class="admin-section">'
+    + '  <h2>フロアマップ配置</h2>'
+    + '  <p style="color:#999;font-size:13px;margin-bottom:12px;">座席をドラッグ＆ドロップで配置できます。</p>'
+    + '  <div class="layout-controls">'
+    + '    <label>列数</label><input type="number" id="layoutCols" value="7" min="1" max="20" onchange="renderLayoutEditor()">'
+    + '    <label>行数</label><input type="number" id="layoutRows" value="6" min="1" max="20" onchange="renderLayoutEditor()">'
+    + '  </div>'
+    + '  <div class="layout-editor-container" id="layoutEditorContainer"></div>'
+    + '  <div id="unplacedSeats" style="margin-top:12px;"></div>'
+    + '</div>'
     + '<div class="admin-section">'
     + '  <h2>座席タイプ管理</h2>'
     + '  <div class="admin-form">'
@@ -812,6 +1151,9 @@ function renderAdminPanel() {
         + '</div>';
     });
     document.getElementById('seatListAdmin').innerHTML = html || '<p style="color:#666;padding:8px;">座席が未登録です</p>';
+
+    // Refresh layout editor
+    renderLayoutEditor();
   });
 
   // Load settings
@@ -883,6 +1225,143 @@ function resetConfig() {
   if (!confirm('ブラウザのFirebase接続設定をリセットしますか？\n再度設定画面が表示されます。')) return;
   localStorage.removeItem('exe_firebase_config');
   location.reload();
+}
+
+// ===== Layout Editor (Admin) =====
+var layoutDragSeatId = null;
+
+function renderLayoutEditor() {
+  var container = document.getElementById('layoutEditorContainer');
+  var unplacedContainer = document.getElementById('unplacedSeats');
+  if (!container) return;
+
+  var cols = parseInt(document.getElementById('layoutCols').value) || 7;
+  var rows = parseInt(document.getElementById('layoutRows').value) || 6;
+
+  db.ref('seats').once('value').then(function(snap) {
+    var seats = snap.val() || {};
+    if (Object.keys(seats).length === 0) {
+      container.innerHTML = '<p style="color:#666;padding:8px;">座席が未登録です。先に一括登録または個別登録を行ってください。</p>';
+      unplacedContainer.innerHTML = '';
+      return;
+    }
+
+    // Build placed map
+    var placedMap = {};
+    var unplaced = [];
+    Object.keys(seats).forEach(function(id) {
+      var s = seats[id];
+      if (s.mapRow && s.mapCol && s.mapRow <= rows && s.mapCol <= cols) {
+        placedMap[s.mapRow + ',' + s.mapCol] = { id: id, data: s };
+      } else {
+        unplaced.push({ id: id, data: s });
+      }
+    });
+
+    // Grid
+    var html = '<div class="layout-editor" style="grid-template-columns: repeat(' + cols + ', 90px); grid-template-rows: repeat(' + rows + ', 70px);">';
+    for (var r = 1; r <= rows; r++) {
+      for (var c = 1; c <= cols; c++) {
+        var key = r + ',' + c;
+        if (placedMap[key]) {
+          var seat = placedMap[key];
+          html += '<div class="layout-cell has-seat" draggable="true" data-seat-id="' + escapeHtml(seat.id) + '" data-row="' + r + '" data-col="' + c + '"'
+            + ' ondragstart="onLayoutDragStart(event)" ondragover="onLayoutDragOver(event)" ondrop="onLayoutDrop(event)" ondragleave="onLayoutDragLeave(event)">'
+            + escapeHtml(seat.data.label || seat.id)
+            + '</div>';
+        } else {
+          html += '<div class="layout-cell" data-row="' + r + '" data-col="' + c + '"'
+            + ' ondragover="onLayoutDragOver(event)" ondrop="onLayoutDrop(event)" ondragleave="onLayoutDragLeave(event)"'
+            + ' onclick="onLayoutCellClick(this)">'
+            + r + ',' + c
+            + '</div>';
+        }
+      }
+    }
+    html += '</div>';
+    container.innerHTML = html;
+
+    // Unplaced seats
+    if (unplaced.length > 0) {
+      var uhtml = '<p style="color:#ff9800;font-size:13px;margin-bottom:8px;">未配置の座席（ドラッグしてマップに配置）:</p>';
+      uhtml += '<div style="display:flex;gap:8px;flex-wrap:wrap;">';
+      unplaced.forEach(function(seat) {
+        uhtml += '<div class="layout-cell has-seat" draggable="true" data-seat-id="' + escapeHtml(seat.id) + '" data-row="0" data-col="0"'
+          + ' ondragstart="onLayoutDragStart(event)" style="width:auto;height:auto;padding:8px 16px;">'
+          + escapeHtml(seat.data.label || seat.id)
+          + '</div>';
+      });
+      uhtml += '</div>';
+      unplacedContainer.innerHTML = uhtml;
+    } else {
+      unplacedContainer.innerHTML = '<p style="color:#4caf50;font-size:13px;">全座席が配置済みです</p>';
+    }
+  });
+}
+
+function onLayoutDragStart(e) {
+  layoutDragSeatId = e.target.getAttribute('data-seat-id');
+  e.dataTransfer.effectAllowed = 'move';
+}
+
+function onLayoutDragOver(e) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  e.currentTarget.classList.add('drag-over');
+}
+
+function onLayoutDragLeave(e) {
+  e.currentTarget.classList.remove('drag-over');
+}
+
+function onLayoutDrop(e) {
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag-over');
+
+  var targetRow = parseInt(e.currentTarget.getAttribute('data-row'));
+  var targetCol = parseInt(e.currentTarget.getAttribute('data-col'));
+  var existingSeatId = e.currentTarget.getAttribute('data-seat-id');
+
+  if (!layoutDragSeatId || !targetRow || !targetCol) return;
+
+  // If dropping on a cell that already has a seat, swap them
+  if (existingSeatId && existingSeatId !== layoutDragSeatId) {
+    // Get source position
+    var sourceEl = document.querySelector('[data-seat-id="' + layoutDragSeatId + '"]');
+    var sourceRow = parseInt(sourceEl.getAttribute('data-row'));
+    var sourceCol = parseInt(sourceEl.getAttribute('data-col'));
+
+    var updates = {};
+    updates['seats/' + layoutDragSeatId + '/mapRow'] = targetRow;
+    updates['seats/' + layoutDragSeatId + '/mapCol'] = targetCol;
+    if (sourceRow && sourceCol) {
+      updates['seats/' + existingSeatId + '/mapRow'] = sourceRow;
+      updates['seats/' + existingSeatId + '/mapCol'] = sourceCol;
+    } else {
+      updates['seats/' + existingSeatId + '/mapRow'] = null;
+      updates['seats/' + existingSeatId + '/mapCol'] = null;
+    }
+
+    db.ref().update(updates).then(function() {
+      showToast('座席を入れ替えました');
+      renderLayoutEditor();
+    });
+  } else {
+    // Move to empty cell
+    db.ref('seats/' + layoutDragSeatId).update({
+      mapRow: targetRow,
+      mapCol: targetCol
+    }).then(function() {
+      showToast(layoutDragSeatId + ' を配置しました');
+      renderLayoutEditor();
+    });
+  }
+
+  layoutDragSeatId = null;
+}
+
+function onLayoutCellClick(el) {
+  // No-op for click on empty cell unless we add a select mode later
 }
 
 // ===== Notification Sound =====
